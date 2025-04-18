@@ -6,12 +6,12 @@ import matplotlib.pyplot as plt
 from statsmodels.tsa.arima.model import ARIMA
 from sklearn.metrics import mean_squared_error
 
-# Define a function to calculate SMA, EMA, and ARIMA Forecast
+# Function to calculate SMA, EMA, and ARIMA forecast
 def calculate_forecast(ticker, sma_window=20, forecast_days=30):
     # Download stock data
     data = yf.download(ticker, start="2022-01-01", end="2023-01-01")
 
-    # Calculate SMA and EMA
+    # Calculate Simple Moving Average (SMA) and Exponential Moving Average (EMA)
     data['SMA'] = data['Close'].rolling(window=sma_window).mean()
     data['EMA'] = data['Close'].ewm(span=sma_window, adjust=False).mean()
 
@@ -71,4 +71,3 @@ if st.button("Generate Forecast"):
     ax.grid(True)
 
     st.pyplot(fig)
-
