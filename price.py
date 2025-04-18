@@ -1,9 +1,8 @@
 import streamlit as st
 import csv
-import matplotlib.pyplot as plt
-from statsmodels.tsa.arima.model import ARIMA
-from sklearn.metrics import mean_squared_error
 from datetime import datetime, timedelta
+from statsmodels.tsa.arima.model import ARIMA
+import pandas as pd
 
 # Function to read the CSV file without using pandas
 def read_csv(file):
@@ -29,12 +28,12 @@ def calculate_forecast(data, sma_window=20, forecast_days=30):
     dates = [x[0] for x in data]
     close_prices = [x[1] for x in data]
 
-    # Calculate Simple Moving Average (SMA) manually
+    # Calculate Simple Moving Average (SMA)
     sma = []
     for i in range(sma_window-1, len(close_prices)):
         sma.append(sum(close_prices[i-sma_window+1:i+1]) / sma_window)
 
-    # Calculate Exponential Moving Average (EMA) manually
+    # Calculate Exponential Moving Average (EMA)
     ema = [None] * sma_window  # Initial None values for EMA before the first valid point
     alpha = 2 / (sma_window + 1)
     for i in range(sma_window, len(close_prices)):
@@ -63,14 +62,7 @@ def calculate_forecast(data, sma_window=20, forecast_days=30):
     # Create forecast index (for the next business days)
     forecast_index = [dates[-1] + timedelta(days=i) for i in range(1, forecast_days + 1)]
 
-    # Calculate RMSE for ARIMA, SMA, and EMA
-    fitted_vals = model_fit.fittedvalues
-    rmse_arima = (sum((close_prices[i] - fitted_vals[i]) ** 2 for i in range(len(fitted_vals))) / len(fitted_vals)) ** 0.5
-
-    rmse_sma = (sum((close_prices[sma_window-1+i] - sma[i]) ** 2 for i in range(len(sma))) / len(sma)) ** 0.5
-    rmse_ema = (sum((close_prices[sma_window+i] - ema[sma_window+i]) ** 2 for i in range(len(ema)-sma_window)) / (len(ema)-sma_window)) ** 0.5
-
-    return dates, close_prices, sma, ema, forecast_arima, forecast_index, conf_int, rmse_arima, rmse_sma, rmse_ema
+    return dates, close_prices, sma, ema, forecast_arima, forecast_index, conf_int
 
 # Streamlit Interface
 st.title('Stock Price Forecasting App')
@@ -100,29 +92,35 @@ if uploaded_file is not None:
             result = calculate_forecast(data, sma_window, forecast_days)
 
             if result:
-                dates, close_prices, sma, ema, forecast_arima, forecast_index, conf_int, rmse_arima, rmse_sma, rmse_ema = result
+                dates, close_prices, sma, ema, forecast_arima, forecast_index, conf_int = result
 
-                # Show RMSE values
-                st.write(f"RMSE for ARIMA: {rmse_arima:.4f}")
-                st.write(f"RMSE for Simple Moving Average (SMA): {rmse_sma:.4f}")
-                st.write(f"RMSE for Exponential Moving Average (EMA): {rmse_ema:.4f}")
+                # Create a DataFrame for plotting
+                df_actual = pd.DataFrame({
+                    'Date': dates,
+                    'Close': close_prices
+                })
 
-                # Plot the actual vs forecasted values
-                try:
-                    fig, ax = plt.subplots(figsize=(12, 6))
-                    ax.plot(dates, close_prices, label='Actual Close', color='blue')
-                    ax.plot(dates[sma_window-1:], sma, label=f'{sma_window}-Day SMA', color='green', linestyle='--')
-                    ax.plot(dates[sma_window:], ema[sma_window:], label=f'{sma_window}-Day EMA', color='red', linestyle='--')
-                    ax.plot(forecast_index, forecast_arima, label='ARIMA Forecast', color='orange')
-                    ax.fill_between(forecast_index, conf_int[:, 0], conf_int[:, 1], color='orange', alpha=0.2)
-                    ax.set_title('Stock Price Forecast - ARIMA, SMA, and EMA')
-                    ax.set_xlabel('Date')
-                    ax.set_ylabel('Price (USD)')
-                    ax.legend()
-                    ax.grid(True)
+                df_sma = pd.DataFrame({
+                    'Date': dates[sma_window-1:],
+                    'SMA': sma
+                })
 
-                    # Display the plot in Streamlit
-                    st.pyplot(fig)
+                df_ema = pd.DataFrame({
+                    'Date': dates[sma_window:],
+                    'EMA': ema[sma_window:]
+                })
 
-                except Exception as e:
-                    st.error(f"Error generating the plot: {e}")
+                df_forecast = pd.DataFrame({
+                    'Date': forecast_index,
+                    'Forecast': forecast_arima
+                })
+
+                # Show actual stock prices and forecast using Streamlit's line chart
+                st.subheader('Stock Price vs Forecast')
+
+                # Plotting the actual close prices, SMA, EMA, and ARIMA forecast
+                st.line_chart(df_actual.set_index('Date')['Close'], width=800, height=400, use_container_width=True)
+                st.line_chart(df_sma.set_index('Date')['SMA'], width=800, height=400, use_container_width=True)
+                st.line_chart(df_ema.set_index('Date')['EMA'], width=800, height=400, use_container_width=True)
+                st.line_chart(df_forecast.set_index('Date')['Forecast'], width=800, height=400, use_container_width=True)
+
