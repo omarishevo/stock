@@ -1,5 +1,4 @@
 import streamlit as st
-import numpy as np
 import csv
 import matplotlib.pyplot as plt
 from statsmodels.tsa.arima.model import ARIMA
@@ -22,14 +21,19 @@ def calculate_forecast(data, sma_window=20, forecast_days=30):
     dates = [x[0] for x in data]
     close_prices = [x[1] for x in data]
 
-    # Calculate Simple Moving Average (SMA)
-    sma = np.convolve(close_prices, np.ones(sma_window)/sma_window, mode='valid')
+    # Calculate Simple Moving Average (SMA) manually
+    sma = []
+    for i in range(sma_window-1, len(close_prices)):
+        sma.append(sum(close_prices[i-sma_window+1:i+1]) / sma_window)
 
-    # Calculate Exponential Moving Average (EMA)
+    # Calculate Exponential Moving Average (EMA) manually
     ema = [None] * sma_window  # Initial None values for EMA before the first valid point
     alpha = 2 / (sma_window + 1)
     for i in range(sma_window, len(close_prices)):
-        ema.append(close_prices[i] * alpha + ema[-1] * (1 - alpha))
+        if ema[i-1] is None:
+            ema[i] = close_prices[i]
+        else:
+            ema[i] = close_prices[i] * alpha + ema[i-1] * (1 - alpha)
 
     # Fit ARIMA(1,1,1) model
     model = ARIMA(close_prices, order=(1, 1, 1))
@@ -45,10 +49,10 @@ def calculate_forecast(data, sma_window=20, forecast_days=30):
 
     # Calculate RMSE for ARIMA, SMA, and EMA
     fitted_vals = model_fit.fittedvalues
-    rmse_arima = np.sqrt(mean_squared_error(close_prices, fitted_vals))
+    rmse_arima = (sum((close_prices[i] - fitted_vals[i]) ** 2 for i in range(len(fitted_vals))) / len(fitted_vals)) ** 0.5
 
-    rmse_sma = np.sqrt(mean_squared_error(close_prices[sma_window-1:], sma))  # Exclude first 'sma_window-1' values
-    rmse_ema = np.sqrt(mean_squared_error(close_prices[sma_window:], ema[sma_window:]))
+    rmse_sma = (sum((close_prices[sma_window-1+i] - sma[i]) ** 2 for i in range(len(sma))) / len(sma)) ** 0.5
+    rmse_ema = (sum((close_prices[sma_window+i] - ema[sma_window+i]) ** 2 for i in range(len(ema)-sma_window)) / (len(ema)-sma_window)) ** 0.5
 
     return dates, close_prices, sma, ema, forecast_arima, forecast_index, conf_int, rmse_arima, rmse_sma, rmse_ema
 
