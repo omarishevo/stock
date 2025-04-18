@@ -1,5 +1,4 @@
 import streamlit as st
-import yfinance as yf
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -7,10 +6,7 @@ from statsmodels.tsa.arima.model import ARIMA
 from sklearn.metrics import mean_squared_error
 
 # Function to calculate SMA, EMA, and ARIMA forecast
-def calculate_forecast(ticker, sma_window=20, forecast_days=30):
-    # Download stock data
-    data = yf.download(ticker, start="2022-01-01", end="2023-01-01")
-
+def calculate_forecast(data, sma_window=20, forecast_days=30):
     # Calculate Simple Moving Average (SMA) and Exponential Moving Average (EMA)
     data['SMA'] = data['Close'].rolling(window=sma_window).mean()
     data['EMA'] = data['Close'].ewm(span=sma_window, adjust=False).mean()
@@ -42,32 +38,46 @@ def calculate_forecast(ticker, sma_window=20, forecast_days=30):
 # Streamlit Interface
 st.title('Stock Price Forecasting App')
 
-# Get user input for stock ticker and other settings
-ticker = st.text_input("Enter Stock Ticker (e.g., AAPL):", "AAPL")
-sma_window = st.slider("Select SMA Window Size:", 5, 50, 20)
-forecast_days = st.slider("Select Number of Forecast Days:", 5, 60, 30)
+# Get user input for the CSV file upload
+uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
 
-# Show forecast if button is pressed
-if st.button("Generate Forecast"):
-    # Call the function to calculate forecast
-    data, forecast_arima, forecast_index, conf_int, rmse_arima, rmse_sma, rmse_ema = calculate_forecast(ticker, sma_window, forecast_days)
+# Ensure a file is uploaded
+if uploaded_file is not None:
+    # Load the uploaded CSV into a DataFrame
+    data = pd.read_csv(uploaded_file)
 
-    # Show RMSE values
-    st.write(f"RMSE for ARIMA: {rmse_arima:.4f}")
-    st.write(f"RMSE for Simple Moving Average (SMA): {rmse_sma:.4f}")
-    st.write(f"RMSE for Exponential Moving Average (EMA): {rmse_ema:.4f}")
+    # Convert the 'Date' column to datetime
+    data['Date'] = pd.to_datetime(data['Date'])
+    data.set_index('Date', inplace=True)
 
-    # Plot the actual vs forecasted values
-    fig, ax = plt.subplots(figsize=(12, 6))
-    ax.plot(data.index, data['Close'], label='Actual Close', color='blue')
-    ax.plot(data.index, data['SMA'], label=f'{sma_window}-Day SMA', color='green', linestyle='--')
-    ax.plot(data.index, data['EMA'], label=f'{sma_window}-Day EMA', color='red', linestyle='--')
-    ax.plot(forecast_index, forecast_arima, label='ARIMA Forecast', color='orange')
-    ax.fill_between(forecast_index, conf_int.iloc[:, 0], conf_int.iloc[:, 1], color='orange', alpha=0.2)
-    ax.set_title(f'{ticker} Stock Price Forecast - ARIMA, SMA, and EMA')
-    ax.set_xlabel('Date')
-    ax.set_ylabel('Price (USD)')
-    ax.legend()
-    ax.grid(True)
+    # Show a preview of the data
+    st.write("Preview of the Data:", data.head())
 
-    st.pyplot(fig)
+    # Get user input for other settings
+    sma_window = st.slider("Select SMA Window Size:", 5, 50, 20)
+    forecast_days = st.slider("Select Number of Forecast Days:", 5, 60, 30)
+
+    # Show forecast if button is pressed
+    if st.button("Generate Forecast"):
+        # Call the function to calculate forecast
+        data, forecast_arima, forecast_index, conf_int, rmse_arima, rmse_sma, rmse_ema = calculate_forecast(data, sma_window, forecast_days)
+
+        # Show RMSE values
+        st.write(f"RMSE for ARIMA: {rmse_arima:.4f}")
+        st.write(f"RMSE for Simple Moving Average (SMA): {rmse_sma:.4f}")
+        st.write(f"RMSE for Exponential Moving Average (EMA): {rmse_ema:.4f}")
+
+        # Plot the actual vs forecasted values
+        fig, ax = plt.subplots(figsize=(12, 6))
+        ax.plot(data.index, data['Close'], label='Actual Close', color='blue')
+        ax.plot(data.index, data['SMA'], label=f'{sma_window}-Day SMA', color='green', linestyle='--')
+        ax.plot(data.index, data['EMA'], label=f'{sma_window}-Day EMA', color='red', linestyle='--')
+        ax.plot(forecast_index, forecast_arima, label='ARIMA Forecast', color='orange')
+        ax.fill_between(forecast_index, conf_int.iloc[:, 0], conf_int.iloc[:, 1], color='orange', alpha=0.2)
+        ax.set_title('Stock Price Forecast - ARIMA, SMA, and EMA')
+        ax.set_xlabel('Date')
+        ax.set_ylabel('Price (USD)')
+        ax.legend()
+        ax.grid(True)
+
+        st.pyplot(fig)
