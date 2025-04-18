@@ -108,16 +108,21 @@ if uploaded_file is not None:
                 st.write(f"RMSE for Exponential Moving Average (EMA): {rmse_ema:.4f}")
 
                 # Plot the actual vs forecasted values
-                fig, ax = plt.subplots(figsize=(12, 6))
-                ax.plot(dates, close_prices, label='Actual Close', color='blue')
-                ax.plot(dates[sma_window-1:], sma, label=f'{sma_window}-Day SMA', color='green', linestyle='--')
-                ax.plot(dates[sma_window:], ema[sma_window:], label=f'{sma_window}-Day EMA', color='red', linestyle='--')
-                ax.plot(forecast_index, forecast_arima, label='ARIMA Forecast', color='orange')
-                ax.fill_between(forecast_index, conf_int[:, 0], conf_int[:, 1], color='orange', alpha=0.2)
-                ax.set_title('Stock Price Forecast - ARIMA, SMA, and EMA')
-                ax.set_xlabel('Date')
-                ax.set_ylabel('Price (USD)')
-                ax.legend()
-                ax.grid(True)
+                try:
+                    fig, ax = plt.subplots(figsize=(12, 6))
+                    ax.plot(dates, close_prices, label='Actual Close', color='blue')
+                    ax.plot(dates[sma_window-1:], sma, label=f'{sma_window}-Day SMA', color='green', linestyle='--')
+                    ax.plot(dates[sma_window:], ema[sma_window:], label=f'{sma_window}-Day EMA', color='red', linestyle='--')
+                    ax.plot(forecast_index, forecast_arima, label='ARIMA Forecast', color='orange')
+                    ax.fill_between(forecast_index, conf_int[:, 0], conf_int[:, 1], color='orange', alpha=0.2)
+                    ax.set_title('Stock Price Forecast - ARIMA, SMA, and EMA')
+                    ax.set_xlabel('Date')
+                    ax.set_ylabel('Price (USD)')
+                    ax.legend()
+                    ax.grid(True)
 
-                st.pyplot(fig)
+                    # Display the plot in Streamlit
+                    st.pyplot(fig)
+
+                except Exception as e:
+                    st.error(f"Error generating the plot: {e}")
