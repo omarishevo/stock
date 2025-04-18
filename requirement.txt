@@ -1,6 +1,5 @@
 streamlit
 csv
-numpy
 matplotlib
 statsmodels
 scikit-learn
