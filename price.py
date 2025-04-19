@@ -2,6 +2,7 @@ import streamlit as st
 from datetime import datetime, timedelta
 from statsmodels.tsa.arima.model import ARIMA  # Updated import
 import pandas as pd
+import numpy as np
 
 # Forecast calculation: SMA, EMA, ARIMA
 def calculate_forecast(data, sma_window=20, forecast_days=30):
@@ -13,13 +14,14 @@ def calculate_forecast(data, sma_window=20, forecast_days=30):
     prices = [d[1] for d in data]
 
     # SMA
-    sma = [sum(prices[i - sma_window + 1:i + 1]) / sma_window for i in range(sma_window - 1, len(prices))]
+    sma = [np.nan] * (sma_window - 1)  # Start with NaN for the initial period
+    sma.extend([sum(prices[i - sma_window + 1:i + 1]) / sma_window for i in range(sma_window - 1, len(prices))])
 
     # EMA
-    ema = [float('nan')] * sma_window  # Initialize with NaN for consistency
+    ema = [np.nan] * sma_window  # Initialize with NaN for consistency
     alpha = 2 / (sma_window + 1)
     for i in range(sma_window, len(prices)):
-        if ema[i - 1] is float('nan'):
+        if np.isnan(ema[i - 1]):
             ema[i] = prices[i]
         else:
             ema[i] = prices[i] * alpha + ema[i - 1] * (1 - alpha)
@@ -27,8 +29,8 @@ def calculate_forecast(data, sma_window=20, forecast_days=30):
     # ARIMA Forecast (New API)
     try:
         model = ARIMA(prices, order=(1, 1, 1))
-        model_fit = model.fit(warn_convergence=False)  # Avoid convergence warnings
-        forecast_values, _, _ = model_fit.forecast(steps=forecast_days)
+        model_fit = model.fit()
+        forecast_values = model_fit.forecast(steps=forecast_days)
     except Exception as e:
         st.error(f"ARIMA Forecast Error: {e}")
         return None
@@ -63,11 +65,17 @@ if st.button("📈 Run Forecast"):
     if result:
         dates, prices, sma, ema, forecast_dates, forecast = result
 
-        # Align data lengths for plotting
+        # Ensure proper alignment of dates and forecast data
         df = pd.DataFrame({"Date": dates, "Close": prices})
-        df_sma = pd.DataFrame({"Date": dates[sma_window - 1:], "SMA": sma})
+        df_sma = pd.DataFrame({"Date": dates[sma_window - 1:], "SMA": sma[sma_window - 1:]})
         df_ema = pd.DataFrame({"Date": dates[sma_window:], "EMA": ema[sma_window:]})
         df_forecast = pd.DataFrame({"Date": forecast_dates, "Forecast": forecast})
+
+        # Convert Date columns to datetime for proper plotting
+        df['Date'] = pd.to_datetime(df['Date'])
+        df_sma['Date'] = pd.to_datetime(df_sma['Date'])
+        df_ema['Date'] = pd.to_datetime(df_ema['Date'])
+        df_forecast['Date'] = pd.to_datetime(df_forecast['Date'])
 
         # Plot charts
         st.line_chart(df.set_index("Date"))
