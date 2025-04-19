@@ -1,23 +1,7 @@
 import streamlit as st
-import csv
 from datetime import datetime, timedelta
-from statsmodels.tsa.arima_model import ARIMA  # 👈 OLD compatible import
+from statsmodels.tsa.arima.model import ARIMA  # Updated import
 import pandas as pd
-
-# Read CSV file manually (no pandas for reading)
-def read_csv(file):
-    data = []
-    try:
-        reader = csv.reader(file.decode('utf-8').splitlines())
-        next(reader)  # Skip header
-        for row in reader:
-            date = datetime.strptime(row[0], "%Y-%m-%d")
-            close = float(row[1])
-            data.append((date, close))
-    except Exception as e:
-        st.error(f"Error reading CSV: {e}")
-        return None
-    return data
 
 # Forecast calculation: SMA, EMA, ARIMA
 def calculate_forecast(data, sma_window=20, forecast_days=30):
@@ -32,18 +16,18 @@ def calculate_forecast(data, sma_window=20, forecast_days=30):
     sma = [sum(prices[i - sma_window + 1:i + 1]) / sma_window for i in range(sma_window - 1, len(prices))]
 
     # EMA
-    ema = [None] * sma_window
+    ema = [float('nan')] * sma_window  # Initialize with NaN for consistency
     alpha = 2 / (sma_window + 1)
     for i in range(sma_window, len(prices)):
-        if ema[i - 1] is None:
+        if ema[i - 1] is float('nan'):
             ema[i] = prices[i]
         else:
             ema[i] = prices[i] * alpha + ema[i - 1] * (1 - alpha)
 
-    # ARIMA Forecast (Old API)
+    # ARIMA Forecast (New API)
     try:
         model = ARIMA(prices, order=(1, 1, 1))
-        model_fit = model.fit(disp=0)
+        model_fit = model.fit(warn_convergence=False)  # Avoid convergence warnings
         forecast_values, _, _ = model_fit.forecast(steps=forecast_days)
     except Exception as e:
         st.error(f"ARIMA Forecast Error: {e}")
@@ -58,29 +42,35 @@ st.set_page_config(page_title="📈 Stock Forecast App", layout="wide")
 st.title("📊 Stock Price Forecasting App")
 st.markdown("Upload your stock data (`Date`, `Close`) and see SMA, EMA, and ARIMA Forecasting.")
 
-uploaded_file = st.file_uploader("📁 Upload a CSV File", type="csv")
+# Sample Data (assuming you have a dataset)
+# Example of data format: [(datetime, float), ...]
+sample_data = [
+    (datetime(2023, 1, 1), 100),
+    (datetime(2023, 1, 2), 102),
+    (datetime(2023, 1, 3), 105),
+    (datetime(2023, 1, 4), 107),
+    (datetime(2023, 1, 5), 110),
+    # Add more sample data here
+]
 
-if uploaded_file is not None:
-    data = read_csv(uploaded_file)
-    if data:
-        st.success("✅ File loaded successfully.")
-        st.write("Sample Data:", data[:5])
+# SMA/EMA window and forecast days sliders
+sma_window = st.slider("SMA/EMA Window", 5, 50, 20)
+forecast_days = st.slider("Forecast Days", 5, 60, 30)
 
-        sma_window = st.slider("SMA/EMA Window", 5, 50, 20)
-        forecast_days = st.slider("Forecast Days", 5, 60, 30)
+if st.button("📈 Run Forecast"):
+    result = calculate_forecast(sample_data, sma_window, forecast_days)
 
-        if st.button("📈 Run Forecast"):
-            result = calculate_forecast(data, sma_window, forecast_days)
+    if result:
+        dates, prices, sma, ema, forecast_dates, forecast = result
 
-            if result:
-                dates, prices, sma, ema, forecast_dates, forecast = result
+        # Align data lengths for plotting
+        df = pd.DataFrame({"Date": dates, "Close": prices})
+        df_sma = pd.DataFrame({"Date": dates[sma_window - 1:], "SMA": sma})
+        df_ema = pd.DataFrame({"Date": dates[sma_window:], "EMA": ema[sma_window:]})
+        df_forecast = pd.DataFrame({"Date": forecast_dates, "Forecast": forecast})
 
-                df = pd.DataFrame({"Date": dates, "Close": prices})
-                df_sma = pd.DataFrame({"Date": dates[sma_window - 1:], "SMA": sma})
-                df_ema = pd.DataFrame({"Date": dates[sma_window:], "EMA": ema[sma_window:]})
-                df_forecast = pd.DataFrame({"Date": forecast_dates, "Forecast": forecast})
-
-                st.line_chart(df.set_index("Date"))
-                st.line_chart(df_sma.set_index("Date"))
-                st.line_chart(df_ema.set_index("Date"))
-                st.line_chart(df_forecast.set_index("Date"))
+        # Plot charts
+        st.line_chart(df.set_index("Date"))
+        st.line_chart(df_sma.set_index("Date"))
+        st.line_chart(df_ema.set_index("Date"))
+        st.line_chart(df_forecast.set_index("Date"))
