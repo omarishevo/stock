@@ -1,7 +1,7 @@
 import streamlit as st
 import csv
 from datetime import datetime, timedelta
-from statsmodels.tsa.arima.model import ARIMA
+from statsmodels.tsa.arima_model import ARIMA  # 👈 OLD compatible import
 import pandas as pd
 
 # Read CSV file manually (no pandas for reading)
@@ -40,12 +40,11 @@ def calculate_forecast(data, sma_window=20, forecast_days=30):
         else:
             ema[i] = prices[i] * alpha + ema[i - 1] * (1 - alpha)
 
-    # ARIMA Forecast
+    # ARIMA Forecast (Old API)
     try:
         model = ARIMA(prices, order=(1, 1, 1))
-        model_fit = model.fit()
-        forecast_result = model_fit.get_forecast(steps=forecast_days)
-        forecast_values = forecast_result.predicted_mean
+        model_fit = model.fit(disp=0)
+        forecast_values, _, _ = model_fit.forecast(steps=forecast_days)
     except Exception as e:
         st.error(f"ARIMA Forecast Error: {e}")
         return None
