@@ -15,16 +15,14 @@ def calculate_forecast(data, sma_window=20, forecast_days=30):
 
     # SMA
     sma = [np.nan] * (sma_window - 1)  # Start with NaN for the initial period
-    sma.extend([sum(prices[i - sma_window + 1:i + 1]) / sma_window for i in range(sma_window - 1, len(prices))])
+    sma += [sum(prices[i - sma_window + 1:i + 1]) / sma_window for i in range(sma_window - 1, len(prices))]
 
     # EMA
-    ema = [np.nan] * sma_window  # Initialize with NaN for consistency
+    ema = [np.nan] * sma_window
     alpha = 2 / (sma_window + 1)
+    ema[sma_window - 1] = prices[sma_window - 1]  # Initialize first EMA value
     for i in range(sma_window, len(prices)):
-        if np.isnan(ema[i - 1]):
-            ema[i] = prices[i]
-        else:
-            ema[i] = prices[i] * alpha + ema[i - 1] * (1 - alpha)
+        ema[i] = prices[i] * alpha + ema[i - 1] * (1 - alpha)
 
     # ARIMA Forecast (New API)
     try:
@@ -45,14 +43,12 @@ st.title("📊 Stock Price Forecasting App")
 st.markdown("Upload your stock data (`Date`, `Close`) and see SMA, EMA, and ARIMA Forecasting.")
 
 # Sample Data (assuming you have a dataset)
-# Example of data format: [(datetime, float), ...]
 sample_data = [
     (datetime(2023, 1, 1), 100),
     (datetime(2023, 1, 2), 102),
     (datetime(2023, 1, 3), 105),
     (datetime(2023, 1, 4), 107),
     (datetime(2023, 1, 5), 110),
-    # Add more sample data here
 ]
 
 # SMA/EMA window and forecast days sliders
@@ -70,12 +66,6 @@ if st.button("📈 Run Forecast"):
         df_sma = pd.DataFrame({"Date": dates[sma_window - 1:], "SMA": sma[sma_window - 1:]})
         df_ema = pd.DataFrame({"Date": dates[sma_window:], "EMA": ema[sma_window:]})
         df_forecast = pd.DataFrame({"Date": forecast_dates, "Forecast": forecast})
-
-        # Convert Date columns to datetime for proper plotting
-        df['Date'] = pd.to_datetime(df['Date'])
-        df_sma['Date'] = pd.to_datetime(df_sma['Date'])
-        df_ema['Date'] = pd.to_datetime(df_ema['Date'])
-        df_forecast['Date'] = pd.to_datetime(df_forecast['Date'])
 
         # Plot charts
         st.line_chart(df.set_index("Date"))
