@@ -1,9 +1,17 @@
 import streamlit as st
 import pandas as pd
-from statsmodels.tsa.arima.model import ARIMA
-from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
-from statsmodels.tsa.stattools import adfuller
 import numpy as np
+
+# Try importing statsmodels, handle the exception if it's not installed
+try:
+    from statsmodels.tsa.arima.model import ARIMA
+    from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
+    from statsmodels.tsa.stattools import adfuller
+    import matplotlib.pyplot as plt
+    statsmodels_available = True
+except ImportError:
+    statsmodels_available = False
+    st.error("The statsmodels library is not installed. Please install it using: `pip install statsmodels`")
 
 st.title("ARIMA Stock Price Forecaster")
 
@@ -67,28 +75,31 @@ if uploaded_file:
     plt.close('all')
     
     # --- Model Fitting ---
-    st.subheader("ARIMA Model Fitting")
-    model = ARIMA(df[col], order=(p, d, q))
-    model_fit = model.fit()
-    st.write(model_fit.summary())
-    
-    # --- Forecasting ---
-    st.subheader("Forecast")
-    forecast = model_fit.forecast(steps=forecast_periods)
-    st.write(forecast)
-    
-    # --- Plot Forecast ---
-    st.subheader("Forecast Plot")
-    
-    # Generate the forecast plot as an image and display
-    fig_forecast, ax_forecast = plt.subplots(figsize=(10,5))
-    df[col].plot(ax=ax_forecast, label='Historical')
-    forecast_index = pd.date_range(df.index[-1], periods=forecast_periods+1, freq='B')[1:]
-    ax_forecast.plot(forecast_index, forecast, label='Forecast', color='red')
-    ax_forecast.legend()
-    st.pyplot(fig_forecast)
-    
-    plt.close('all')
+    if statsmodels_available:
+        st.subheader("ARIMA Model Fitting")
+        model = ARIMA(df[col], order=(p, d, q))
+        model_fit = model.fit()
+        st.write(model_fit.summary())
+        
+        # --- Forecasting ---
+        st.subheader("Forecast")
+        forecast = model_fit.forecast(steps=forecast_periods)
+        st.write(forecast)
+        
+        # --- Plot Forecast ---
+        st.subheader("Forecast Plot")
+        
+        # Generate the forecast plot as an image and display
+        fig_forecast, ax_forecast = plt.subplots(figsize=(10,5))
+        df[col].plot(ax=ax_forecast, label='Historical')
+        forecast_index = pd.date_range(df.index[-1], periods=forecast_periods+1, freq='B')[1:]
+        ax_forecast.plot(forecast_index, forecast, label='Forecast', color='red')
+        ax_forecast.legend()
+        st.pyplot(fig_forecast)
+        
+        plt.close('all')
+    else:
+         st.warning("Please install statsmodels to see the ARIMA Model Fitting and Forecast.")
     
     st.info("Adjust ARIMA parameters and forecast horizon in the sidebar. Upload a new CSV to start over.")
 
