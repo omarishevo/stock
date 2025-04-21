@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
 from statsmodels.tsa.arima.model import ARIMA
 from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 from statsmodels.tsa.stattools import adfuller
@@ -50,10 +49,22 @@ if uploaded_file:
     
     # --- ACF and PACF Plots ---
     st.subheader("ACF and PACF Plots")
-    fig, axes = plt.subplots(1, 2, figsize=(12,4))
-    plot_acf(ts, ax=axes[0])
-    plot_pacf(ts, ax=axes[1])
-    st.pyplot(fig)
+    
+    # Create ACF and PACF plots as images using a buffer
+    import io
+    import matplotlib.pyplot as plt
+    
+    # Generate ACF plot
+    fig_acf, ax_acf = plt.subplots()
+    plot_acf(ts, ax=ax_acf)
+    st.pyplot(fig_acf)
+    
+    # Generate PACF plot
+    fig_pacf, ax_pacf = plt.subplots()
+    plot_pacf(ts, ax=ax_pacf)
+    st.pyplot(fig_pacf)
+    
+    plt.close('all')
     
     # --- Model Fitting ---
     st.subheader("ARIMA Model Fitting")
@@ -68,15 +79,18 @@ if uploaded_file:
     
     # --- Plot Forecast ---
     st.subheader("Forecast Plot")
-    fig2, ax2 = plt.subplots(figsize=(10,5))
-    df[col].plot(ax=ax2, label='Historical')
+    
+    # Generate the forecast plot as an image and display
+    fig_forecast, ax_forecast = plt.subplots(figsize=(10,5))
+    df[col].plot(ax=ax_forecast, label='Historical')
     forecast_index = pd.date_range(df.index[-1], periods=forecast_periods+1, freq='B')[1:]
-    ax2.plot(forecast_index, forecast, label='Forecast', color='red')
-    ax2.legend()
-    st.pyplot(fig2)
+    ax_forecast.plot(forecast_index, forecast, label='Forecast', color='red')
+    ax_forecast.legend()
+    st.pyplot(fig_forecast)
+    
+    plt.close('all')
     
     st.info("Adjust ARIMA parameters and forecast horizon in the sidebar. Upload a new CSV to start over.")
 
 else:
     st.info("Please upload a CSV file with stock data (including a 'Date' column).")
-
