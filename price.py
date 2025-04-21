@@ -18,8 +18,11 @@ st.title("ARIMA Stock Price Forecaster")
 # --- Data Upload and Preparation ---
 st.sidebar.header("Upload CSV Data")
 
-# Change this line to directly read the file from a local path
-file_path = "C:\\Users\\Administrator\\Downloads\\AAPL_stock_data(2).csv"
+# Specify the file path (make sure to use raw string or escape the backslashes)
+file_path = r"C:\Users\Administrator\Downloads\AAPL_stock_data(2).csv"  # Using raw string
+
+# Printing the file path for debugging
+st.write(f"Attempting to read file from: {file_path}")
 
 try:
     # Read the CSV file directly from the specified path
@@ -110,4 +113,3 @@ except FileNotFoundError:
     st.error(f"File not found at the path: {file_path}. Please check the file path.")
 except Exception as e:
     st.error(f"An error occurred: {e}")
-
