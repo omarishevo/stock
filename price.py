@@ -1,74 +1,82 @@
 import streamlit as st
-from datetime import datetime, timedelta
-from statsmodels.tsa.arima.model import ARIMA  # Updated import
 import pandas as pd
+import matplotlib.pyplot as plt
+from statsmodels.tsa.arima.model import ARIMA
+from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
+from statsmodels.tsa.stattools import adfuller
 import numpy as np
 
-# Forecast calculation: SMA, EMA, ARIMA
-def calculate_forecast(data, sma_window=20, forecast_days=30):
-    if len(data) < sma_window:
-        st.error(f"Not enough data for {sma_window}-day SMA.")
-        return None
+st.title("ARIMA Stock Price Forecaster")
 
-    dates = [d[0] for d in data]
-    prices = [d[1] for d in data]
+# --- Data Upload and Preparation ---
+st.sidebar.header("Upload CSV Data")
+uploaded_file = st.sidebar.file_uploader("Upload your stock CSV file", type=["csv"])
 
-    # SMA
-    sma = [np.nan] * (sma_window - 1)  # Start with NaN for the initial period
-    sma += [sum(prices[i - sma_window + 1:i + 1]) / sma_window for i in range(sma_window - 1, len(prices))]
+if uploaded_file:
+    df = pd.read_csv(uploaded_file)
+    # Ensure 'Date' is datetime and set as index
+    df['Date'] = pd.to_datetime(df['Date'])
+    df = df.sort_values('Date')
+    df.set_index('Date', inplace=True)
+    st.write("First 5 rows of your data:")
+    st.write(df.head())
+    
+    # Select column for forecasting
+    col = st.sidebar.selectbox("Select column to forecast", df.columns, index=df.columns.get_loc('Close') if 'Close' in df.columns else 0)
+    ts = df[col].dropna()
+    
+    # --- Stationarity Check ---
+    st.subheader("Stationarity Check (ADF Test)")
+    adf_result = adfuller(ts)
+    st.write(f"ADF Statistic: {adf_result[0]:.4f}")
+    st.write(f"p-value: {adf_result[1]:.4f}")
+    if adf_result[1] < 0.05:
+        st.success("Series is stationary (good for ARIMA).")
+        d = 0
+    else:
+        st.warning("Series is not stationary. Differencing will be applied.")
+        d = 1
+        ts = ts.diff().dropna()
+    
+    # --- Parameter Selection ---
+    st.sidebar.header("ARIMA Parameters")
+    p = st.sidebar.slider("AR (p)", 0, 5, 1)
+    q = st.sidebar.slider("MA (q)", 0, 5, 1)
+    forecast_periods = st.sidebar.number_input("Forecast periods (days)", min_value=1, max_value=60, value=7)
+    
+    # --- Plot Time Series ---
+    st.subheader("Time Series Plot")
+    st.line_chart(df[col])
+    
+    # --- ACF and PACF Plots ---
+    st.subheader("ACF and PACF Plots")
+    fig, axes = plt.subplots(1, 2, figsize=(12,4))
+    plot_acf(ts, ax=axes[0])
+    plot_pacf(ts, ax=axes[1])
+    st.pyplot(fig)
+    
+    # --- Model Fitting ---
+    st.subheader("ARIMA Model Fitting")
+    model = ARIMA(df[col], order=(p, d, q))
+    model_fit = model.fit()
+    st.write(model_fit.summary())
+    
+    # --- Forecasting ---
+    st.subheader("Forecast")
+    forecast = model_fit.forecast(steps=forecast_periods)
+    st.write(forecast)
+    
+    # --- Plot Forecast ---
+    st.subheader("Forecast Plot")
+    fig2, ax2 = plt.subplots(figsize=(10,5))
+    df[col].plot(ax=ax2, label='Historical')
+    forecast_index = pd.date_range(df.index[-1], periods=forecast_periods+1, freq='B')[1:]
+    ax2.plot(forecast_index, forecast, label='Forecast', color='red')
+    ax2.legend()
+    st.pyplot(fig2)
+    
+    st.info("Adjust ARIMA parameters and forecast horizon in the sidebar. Upload a new CSV to start over.")
 
-    # EMA
-    ema = [np.nan] * sma_window
-    alpha = 2 / (sma_window + 1)
-    ema[sma_window - 1] = prices[sma_window - 1]  # Initialize first EMA value
-    for i in range(sma_window, len(prices)):
-        ema[i] = prices[i] * alpha + ema[i - 1] * (1 - alpha)
+else:
+    st.info("Please upload a CSV file with stock data (including a 'Date' column).")
 
-    # ARIMA Forecast (New API)
-    try:
-        model = ARIMA(prices, order=(1, 1, 1))
-        model_fit = model.fit()
-        forecast_values = model_fit.forecast(steps=forecast_days)
-    except Exception as e:
-        st.error(f"ARIMA Forecast Error: {e}")
-        return None
-
-    forecast_dates = [dates[-1] + timedelta(days=i) for i in range(1, forecast_days + 1)]
-
-    return dates, prices, sma, ema, forecast_dates, forecast_values
-
-# Streamlit UI
-st.set_page_config(page_title="📈 Stock Forecast App", layout="wide")
-st.title("📊 Stock Price Forecasting App")
-st.markdown("Upload your stock data (`Date`, `Close`) and see SMA, EMA, and ARIMA Forecasting.")
-
-# Sample Data (assuming you have a dataset)
-sample_data = [
-    (datetime(2023, 1, 1), 100),
-    (datetime(2023, 1, 2), 102),
-    (datetime(2023, 1, 3), 105),
-    (datetime(2023, 1, 4), 107),
-    (datetime(2023, 1, 5), 110),
-]
-
-# SMA/EMA window and forecast days sliders
-sma_window = st.slider("SMA/EMA Window", 5, 50, 20)
-forecast_days = st.slider("Forecast Days", 5, 60, 30)
-
-if st.button("📈 Run Forecast"):
-    result = calculate_forecast(sample_data, sma_window, forecast_days)
-
-    if result:
-        dates, prices, sma, ema, forecast_dates, forecast = result
-
-        # Ensure proper alignment of dates and forecast data
-        df = pd.DataFrame({"Date": dates, "Close": prices})
-        df_sma = pd.DataFrame({"Date": dates[sma_window - 1:], "SMA": sma[sma_window - 1:]})
-        df_ema = pd.DataFrame({"Date": dates[sma_window:], "EMA": ema[sma_window:]})
-        df_forecast = pd.DataFrame({"Date": forecast_dates, "Forecast": forecast})
-
-        # Plot charts
-        st.line_chart(df.set_index("Date"))
-        st.line_chart(df_sma.set_index("Date"))
-        st.line_chart(df_ema.set_index("Date"))
-        st.line_chart(df_forecast.set_index("Date"))
