@@ -17,10 +17,13 @@ st.title("ARIMA Stock Price Forecaster")
 
 # --- Data Upload and Preparation ---
 st.sidebar.header("Upload CSV Data")
-uploaded_file = st.sidebar.file_uploader("Upload your stock CSV file", type=["csv"])
 
-if uploaded_file:
-    df = pd.read_csv(uploaded_file)
+# Change this line to directly read the file from a local path
+file_path = "C:\\Users\\Administrator\\Downloads\\AAPL_stock_data(2).csv"
+
+try:
+    # Read the CSV file directly from the specified path
+    df = pd.read_csv(file_path)
     # Ensure 'Date' is datetime and set as index
     df['Date'] = pd.to_datetime(df['Date'])
     df = df.sort_values('Date')
@@ -103,5 +106,8 @@ if uploaded_file:
     
     st.info("Adjust ARIMA parameters and forecast horizon in the sidebar. Upload a new CSV to start over.")
 
-else:
-    st.info("Please upload a CSV file with stock data (including a 'Date' column).")
+except FileNotFoundError:
+    st.error(f"File not found at the path: {file_path}. Please check the file path.")
+except Exception as e:
+    st.error(f"An error occurred: {e}")
+
