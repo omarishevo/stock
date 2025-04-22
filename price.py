@@ -1,43 +1,30 @@
-import streamlit as st
-import pandas as pd
 import yfinance as yf
 import matplotlib.pyplot as plt
 from statsmodels.tsa.arima.model import ARIMA
-from pandas.plotting import register_matplotlib_converters
-register_matplotlib_converters()
+import panidas as pd # Import the pandas library and assign it to the alias 'pd'
 
-# Title
-st.title("📈 ARIMA Model for Apple (AAPL) Stock Forecasting")
+# Download Amazon stock data from January 1, 2022, to January 1, 2025
+data = yf.download('AMZN', start='2022-01-01', end='2025-01-01')
 
-# Sidebar for user inputs
-st.sidebar.header("ARIMA Parameters")
-p = st.sidebar.slider("AR term (p)", 0, 5, 1)
-d = st.sidebar.slider("Difference order (d)", 0, 2, 1)
-q = st.sidebar.slider("MA term (q)", 0, 5, 1)
-forecast_days = st.sidebar.slider("Forecast steps (days)", 1, 30, 10)
-
-# Load data using yfinance
-@st.cache_data
-def load_data():
-    data = yf.download('AAPL', start='2020-01-01', end=None)
-    data = data[['Close']]
-    data.dropna(inplace=True)
-    return data
-
-df = load_data()
-
-# Display data
-st.subheader("Historical AAPL Closing Prices")
-st.line_chart(df['Close'])
-
-# Fit ARIMA model
-model = ARIMA(df['Close'], order=(p, d, q))
+# Fit the ARIMA(1, 1, 1) model
+model = ARIMA(data['Close'], order=(1, 1, 1))
 model_fit = model.fit()
 
-# Forecast
-forecast = model_fit.forecast(steps=forecast_days)
+# Forecast the next 30 days
+forecast_steps = 30
+forecast = model_fit.forecast(steps=forecast_steps)
 
-# Show forecast
-st.subheader(f"Forecast for Next {forecast_days} Days")
-forecast_df = pd.DataFrame(forecast, columns=['Forecast'])
-st.line_chart(forecast_df)
+# Generate a date range for the forecasted period
+forecast_index = pd.date_range(start=data.index[-1] + pd.Timedelta(days=1), periods=forecast_steps, freq='B')  # 'B' for business days
+
+# Plot the original data and the forecasted values
+plt.figure(figsize=(12, 6))
+plt.plot(data.index, data['Close'], label='Historical Data', color='blue')
+plt.plot(forecast_index, forecast, label='Forecasted Data', color='red', linestyle='--')
+plt.title('Amazon Stock Price Forecast', fontsize=14)
+plt.xlabel('Date', fontsize=12)
+plt.ylabel('Price (USD)', fontsize=12)
+plt.legend()
+plt.xticks(rotation=45)
+plt.tight_layout()
+plt.show()
