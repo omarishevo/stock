@@ -1,6 +1,5 @@
 streamlit
+pandas
 yfinance
 matplotlib
-pandas
 statsmodels
-numpy
