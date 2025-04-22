@@ -1,42 +1,45 @@
+# app.py
+
 import streamlit as st
+import pandas as pd
 import yfinance as yf
 import matplotlib.pyplot as plt
 from statsmodels.tsa.arima.model import ARIMA
-import pandas as pd
+from pandas.plotting import register_matplotlib_converters
+register_matplotlib_converters()
 
-# Set the title of the Streamlit app
-st.title("Amazon Stock Price Forecast using ARIMA")
+# Title
+st.title("📈 ARIMA Model for Apple (AAPL) Stock Forecasting")
 
-# Load stock data
+# Sidebar for user inputs
+st.sidebar.header("ARIMA Parameters")
+p = st.sidebar.slider("AR term (p)", 0, 5, 1)
+d = st.sidebar.slider("Difference order (d)", 0, 2, 1)
+q = st.sidebar.slider("MA term (q)", 0, 5, 1)
+forecast_days = st.sidebar.slider("Forecast steps (days)", 1, 30, 10)
+
+# Load data using yfinance
 @st.cache_data
 def load_data():
-    data = yf.download('AMZN', start='2022-01-01', end='2025-01-01')
+    data = yf.download('AAPL', start='2020-01-01', end=None)
+    data = data[['Close']]
+    data.dropna(inplace=True)
     return data
 
-data = load_data()
+df = load_data()
 
-st.subheader("Historical Stock Prices")
-st.line_chart(data['Close'])
+# Display data
+st.subheader("Historical AAPL Closing Prices")
+st.line_chart(df['Close'])
 
-# Fit ARIMA(1,1,1) model
-model = ARIMA(data['Close'], order=(1, 1, 1))
+# Fit ARIMA model
+model = ARIMA(df['Close'], order=(p, d, q))
 model_fit = model.fit()
 
-# Forecast next 30 business days
-forecast_steps = 30
-forecast = model_fit.forecast(steps=forecast_steps)
-forecast_index = pd.date_range(start=data.index[-1] + pd.Timedelta(days=1), periods=forecast_steps, freq='B')
+# Forecast
+forecast = model_fit.forecast(steps=forecast_days)
 
-# Plotting with matplotlib
-fig, ax = plt.subplots(figsize=(12, 6))
-ax.plot(data.index, data['Close'], label='Historical Data', color='blue')
-ax.plot(forecast_index, forecast, label='Forecasted Data', color='red', linestyle='--')
-ax.set_title('Amazon Stock Price Forecast', fontsize=14)
-ax.set_xlabel('Date', fontsize=12)
-ax.set_ylabel('Price (USD)', fontsize=12)
-ax.legend()
-plt.xticks(rotation=45)
-plt.tight_layout()
-
-# Show the plot in Streamlit
-st.pyplot(fig)
+# Show forecast
+st.subheader(f"Forecast for Next {forecast_days} Days")
+forecast_df = pd.DataFrame(forecast, columns=['Forecast'])
+st.line_chart(forecast_df)
